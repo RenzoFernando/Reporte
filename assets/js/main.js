@@ -130,25 +130,35 @@
     return text;
   }
 
+  function normalizeNameWhileTyping(value) {
+    return String(value ?? "").toLocaleLowerCase("es-CO")
+      .replace(/(^|[\s'-])([a-záéíóúüñ])/g, (match, prefix, letter) => `${prefix}${letter.toLocaleUpperCase("es-CO")}`);
+  }
+
+  function normalizeSentenceWhileTyping(value) {
+    const text = String(value ?? "").toLocaleLowerCase("es-CO");
+    return text.replace(/^(\s*)([a-záéíóúüñ])/, (match, spaces, letter) => `${spaces}${letter.toLocaleUpperCase("es-CO")}`);
+  }
+
+  function digitsOnly(value) {
+    return String(value ?? "").replace(/\D+/g, "");
+  }
+
+  function normalizeStoredLunch(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric < 0 || numeric > 3) return 0;
+    return Math.round(numeric * 2) / 2;
+  }
+
   function normalizeProjectValue(value) {
-    const cleaned = cleanSpaces(value);
-    if (!cleaned) return "";
-    const isUniformCase = cleaned === cleaned.toLocaleUpperCase("es-CO") || cleaned === cleaned.toLocaleLowerCase("es-CO");
-    if (!isUniformCase) return cleaned;
-    const connectors = new Set(["de", "del", "la", "las", "los", "y", "e", "en", "para", "por", "al"]);
-    return cleaned.toLocaleLowerCase("es-CO").split(/(\s+|\/)/).map((token) => {
-      if (!token.trim() || token === "/") return token;
-      if (connectors.has(token)) return token;
-      if (/^[a-záéíóúüñ]{2,3}$/.test(token)) return token.toLocaleUpperCase("es-CO");
-      return token.charAt(0).toLocaleUpperCase("es-CO") + token.slice(1);
-    }).join("");
+    return cleanSpaces(value).toLocaleUpperCase("es-CO");
   }
 
   function normalizeWorkerFields() {
     $("workerFirstNames").value = normalizeNameValue($("workerFirstNames").value);
     $("workerLastNames").value = normalizeNameValue($("workerLastNames").value);
     $("workerRole").value = normalizeLabelValue($("workerRole").value);
-    $("workerId").value = cleanSpaces($("workerId").value);
+    $("workerId").value = digitsOnly($("workerId").value);
   }
 
   function normalizedFinalNote() {
@@ -181,7 +191,7 @@
   function fmtTime(value) {
     if (!value) return "";
     const [hour, minute] = value.split(":").map(Number);
-    const period = hour >= 12 ? "p. m." : "a. m.";
+    const period = hour >= 12 ? "PM" : "AM";
     const displayHour = ((hour + 11) % 12) + 1;
     return `${displayHour}:${String(minute).padStart(2, "0")} ${period}`;
   }
@@ -310,7 +320,7 @@
       const legacy = JSON.parse(raw);
       const names = splitLegacyName(legacy.workerName);
       return {
-        version: 3,
+        version: 4,
         workerFirstNames: names.firstNames,
         workerLastNames: names.lastNames,
         workerId: legacy.workerId || "",
@@ -326,7 +336,7 @@
           date: entry.date,
           start: entry.start,
           end: entry.end,
-          lunch: [0, 1, 2, 3].includes(Number(entry.lunch)) ? Number(entry.lunch) : Math.max(0, Math.min(3, Math.round(Number(entry.lunch) || 0))),
+          lunch: normalizeStoredLunch(entry.lunch),
           project: entry.project || "",
           transport: Number(entry.transport) || 0
         })) : []
@@ -372,7 +382,7 @@
           date: entry.date,
           start: entry.start,
           end: entry.end,
-          lunch: [0, 1, 2, 3].includes(Number(entry.lunch)) ? Number(entry.lunch) : 0,
+          lunch: normalizeStoredLunch(entry.lunch),
           project: normalizeProjectValue(entry.project || ""),
           transport: Number(entry.transport) || 0
         })).sort((a, b) => a.date.localeCompare(b.date))
@@ -382,7 +392,7 @@
   function currentSnapshot() {
     const period = getPeriodFromControls();
     return {
-      version: 3,
+      version: 4,
       workerFirstNames: $("workerFirstNames").value,
       workerLastNames: $("workerLastNames").value,
       workerId: $("workerId").value,
@@ -593,13 +603,18 @@
       $("entryError").textContent = "Selecciona la hora de ingreso, la hora de salida y el tiempo de almuerzo.";
       return;
     }
+    const lunch = Number(lunchValue);
+    if (![0.5, 1, 1.5, 2].includes(lunch)) {
+      $("entryError").textContent = "Selecciona un tiempo de almuerzo válido.";
+      return;
+    }
     const project = selectedProject();
     const entry = {
       id: entryForDate(date)?.id || uniqueId(),
       date,
       start,
       end,
-      lunch: Number(lunchValue),
+      lunch,
       project,
       transport: Math.max(0, Number($("transport").value) || 0)
     };
@@ -740,6 +755,10 @@
       focusField("workerId", "Completa la cédula");
       return false;
     }
+    if (!/^\d+$/.test($("workerId").value)) {
+      focusField("workerId", "La cédula solo puede contener números");
+      return false;
+    }
     if (!$("workerRole").value.trim()) {
       focusField("workerRole", "Completa el cargo");
       return false;
@@ -796,6 +815,7 @@
     workbook.creator = "Renzo Fernando Mosquera Daza";
     workbook.subject = "Reporte de tiempo laborado";
     workbook.created = new Date();
+    workbook.calcProperties.fullCalcOnLoad = true;
 
     const worksheet = workbook.addWorksheet("Reporte", {
       pageSetup: {
@@ -843,6 +863,7 @@
     let row = 8;
     const period = getPeriodFromControls();
     const weeks = groupPeriodWeeks(period);
+    const weekTotalRows = [];
     const headers = ["DÍA / FECHA", "INGRESO", "SALIDA", "PERMANENCIA", "ALMUERZO", "HORAS LABORADAS", "PROYECTO"];
     if (hasTransport) headers.push("TRANSPORTE");
 
@@ -854,8 +875,8 @@
       worksheet.mergeCells(row, 1, row, columnCount);
       const marker = worksheet.getCell(row, 1);
       marker.value = `INICIO SEMANA ${weekIndex + 1} · ${start.getDate()} AL ${end.getDate()} DE ${MONTHS[period.month].toUpperCase()}`;
-      marker.font = { bold: true, size: 9, color: { argb: "FF2B5978" } };
-      marker.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE9F2F8" } };
+      marker.font = { bold: true, size: 9, color: { argb: "FF394550" } };
+      marker.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF0F2F4" } };
       marker.alignment = { horizontal: "center", vertical: "middle" };
       applyBorders(marker, "FF000000");
       worksheet.getRow(row).height = 20;
@@ -865,7 +886,7 @@
         const cell = worksheet.getCell(row, index + 1);
         cell.value = header;
         cell.font = { bold: true, size: 8.5, color: { argb: "FFFFFFFF" } };
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F5F8B" } };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2F3A45" } };
         cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
         applyBorders(cell, "FF000000");
       });
@@ -884,11 +905,11 @@
         worksheet.getCell(row, 4).numFmt = "0.00";
         worksheet.getCell(row, 5).value = Number(entry.lunch) || 0;
         worksheet.getCell(row, 5).numFmt = "0.00";
-        worksheet.getCell(row, 5).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE9D1" } };
+        worksheet.getCell(row, 5).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF7F1E8" } };
         worksheet.getCell(row, 6).value = { formula: `MAX(0,D${row}-E${row})`, result: decimalHours(result.netMinutes) };
         worksheet.getCell(row, 6).numFmt = "0.00";
         worksheet.getCell(row, 6).font = { bold: true, size: 9.5 };
-        worksheet.getCell(row, 7).value = entry.project || "";
+        worksheet.getCell(row, 7).value = normalizeProjectValue(entry.project || "");
         if (hasTransport) {
           worksheet.getCell(row, 8).value = entry.transport ? Number(entry.transport) : null;
           worksheet.getCell(row, 8).numFmt = '"$"#,##0';
@@ -918,44 +939,55 @@
       worksheet.getCell(row, 6).numFmt = "0.00";
       worksheet.getCell(row, 6).font = { bold: true, size: 9.5 };
       if (hasTransport) {
-        worksheet.getCell(row, 8).value = weekEntries.reduce((sum, entry) => sum + (Number(entry.transport) || 0), 0) || null;
+        const weekTransport = weekEntries.reduce((sum, entry) => sum + (Number(entry.transport) || 0), 0);
+        worksheet.getCell(row, 8).value = weekEntries.length
+          ? { formula: `SUM(H${startDataRow}:H${row - 1})`, result: weekTransport }
+          : 0;
         worksheet.getCell(row, 8).numFmt = '"$"#,##0';
         worksheet.getCell(row, 8).font = { bold: true, size: 9 };
       }
       for (let column = 1; column <= columnCount; column += 1) {
         const cell = worksheet.getCell(row, column);
         applyBorders(cell);
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF4F6F8" } };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF5F6F7" } };
       }
       worksheet.getRow(row).height = 20;
+      weekTotalRows.push(row);
       row += 2;
     });
 
     worksheet.mergeCells(row, 1, row, 5);
+    const finalTotalRow = row;
     worksheet.getCell(row, 1).value = `FINAL QUINCENA ${period.half} · TOTAL HORAS LABORADAS`;
     worksheet.getCell(row, 1).font = { bold: true, size: 10.5 };
     worksheet.getCell(row, 1).alignment = { horizontal: "right", vertical: "middle" };
-    worksheet.getCell(row, 6).value = decimalHours(totalNetMinutes());
+    const netTotalFormula = weekTotalRows.length ? `SUM(${weekTotalRows.map((weekRow) => `F${weekRow}`).join(",")})` : "0";
+    worksheet.getCell(row, 6).value = { formula: netTotalFormula, result: decimalHours(totalNetMinutes()) };
     worksheet.getCell(row, 6).numFmt = "0.00";
     worksheet.getCell(row, 6).font = { bold: true, size: 11 };
     if (hasTransport) {
-      worksheet.getCell(row, 8).value = totalTransport();
+      const transportTotalFormula = weekTotalRows.length ? `SUM(${weekTotalRows.map((weekRow) => `H${weekRow}`).join(",")})` : "0";
+      worksheet.getCell(row, 8).value = { formula: transportTotalFormula, result: totalTransport() };
       worksheet.getCell(row, 8).numFmt = '"$"#,##0';
       worksheet.getCell(row, 8).font = { bold: true, size: 10 };
     }
     for (let column = 1; column <= columnCount; column += 1) {
       const cell = worksheet.getCell(row, column);
       applyBorders(cell, "FF000000");
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDE4E9" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE5E7EA" } };
     }
     worksheet.getRow(row).height = 24;
     row += 1;
 
     worksheet.mergeCells(row, 1, row, columnCount);
     const noteCell = worksheet.getCell(row, 1);
-    noteCell.value = `NOTA GENERAL: Las horas laboradas corresponden a la permanencia menos el tiempo de almuerzo. TOTAL HORAS A CANCELAR: ${fmtDuration(totalNetMinutes()).toUpperCase()} + AUXILIO DIARIO PACTADO POR ${Number($("aidDays").value)} DÍAS.`;
+    const noteText = `NOTA GENERAL: Las horas laboradas corresponden a la permanencia menos el tiempo de almuerzo. TOTAL HORAS A CANCELAR: ${fmtDuration(totalNetMinutes()).toUpperCase()} + AUXILIO DIARIO PACTADO POR ${Number($("aidDays").value)} DÍAS.`;
+    noteCell.value = {
+      formula: `"NOTA GENERAL: Las horas laboradas corresponden a la permanencia menos el tiempo de almuerzo. TOTAL HORAS A CANCELAR: "&TEXT(F${finalTotalRow},"0.00")&" HORAS + AUXILIO DIARIO PACTADO POR ${Number($("aidDays").value)} DÍAS."`,
+      result: noteText
+    };
     noteCell.font = { bold: true, size: 8.5, color: { argb: "FF2F2F2F" } };
-    noteCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF2C7" } };
+    noteCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF7F5EF" } };
     noteCell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
     applyBorders(noteCell, "FF000000");
     worksheet.getRow(row).height = 38;
@@ -967,7 +999,7 @@
       const userNoteCell = worksheet.getCell(row, 1);
       userNoteCell.value = `NOTA ADICIONAL: ${userNote}`;
       userNoteCell.font = { bold: true, size: 9, color: { argb: "FF18212B" } };
-      userNoteCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF7FAFC" } };
+      userNoteCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFFFF" } };
       userNoteCell.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
       applyBorders(userNoteCell, "FF000000");
       worksheet.getRow(row).height = Math.max(28, 18 + Math.ceil(userNote.length / 115) * 11);
@@ -1006,7 +1038,7 @@
       worksheet.mergeCells(row, 1, row, 3);
       worksheet.getCell(row, 1).value = "TOTAL TRANSPORTE REGISTRADO";
       worksheet.getCell(row, 1).font = { bold: true, size: 9 };
-      worksheet.getCell(row, 4).value = totalTransport();
+      worksheet.getCell(row, 4).value = { formula: `H${finalTotalRow}`, result: totalTransport() };
       worksheet.getCell(row, 4).numFmt = '"$"#,##0';
       worksheet.getCell(row, 4).font = { bold: true, size: 9 };
       row += 1;
@@ -1034,9 +1066,10 @@
     const columnCount = hasTransport ? 8 : 7;
     const period = getPeriodFromControls();
     const weeks = groupPeriodWeeks(period);
-    const left = 10;
+    const left = 11;
     const pageWidth = doc.internal.pageSize.getWidth();
-    let y = 11;
+    const pageBottom = 198;
+    let y = 12;
 
     doc.setTextColor(24, 33, 43);
     doc.setFont("helvetica", "bold");
@@ -1062,7 +1095,7 @@
     });
     y += 1.5;
 
-    const head = [["Día / fecha", "Ingreso", "Salida", "Permanencia", "Almuerzo", "Laboradas", "Proyecto", ...(hasTransport ? ["Transporte"] : [])]];
+    const head = [["DÍA / FECHA", "INGRESO", "SALIDA", "PERMANENCIA", "ALMUERZO", "HORAS LABORADAS", "PROYECTO", ...(hasTransport ? ["TRANSPORTE"] : [])]];
     const body = [];
 
     weeks.forEach((week, weekIndex) => {
@@ -1071,7 +1104,7 @@
       body.push([{
         content: `INICIO SEMANA ${weekIndex + 1} · ${start.getDate()} AL ${end.getDate()} DE ${MONTHS[period.month].toUpperCase()}`,
         colSpan: columnCount,
-        styles: { fillColor: [233, 242, 248], textColor: [43, 89, 120], fontStyle: "bold", halign: "center", fontSize: 7.6, cellPadding: 1.5 }
+        styles: { fillColor: [240, 242, 244], textColor: [57, 69, 80], fontStyle: "bold", halign: "center", fontSize: 7.6, cellPadding: 1.6 }
       }]);
 
       const weekEntries = entriesForDates(week.dates);
@@ -1084,20 +1117,20 @@
           fmtDuration(result.presenceMinutes, { compact: true }),
           fmtDuration(result.lunchMinutes, { compact: true }),
           fmtDuration(result.netMinutes, { compact: true }),
-          entry.project || "",
+          normalizeProjectValue(entry.project || ""),
           ...(hasTransport ? [entry.transport ? fmtMoney(entry.transport).replace(/\s/g, " ") : ""] : [])
         ]);
       });
 
       const subtotal = [
-        { content: `FINAL SEMANA ${weekIndex + 1}`, colSpan: 5, styles: { fillColor: [244, 246, 248], fontStyle: "bold", halign: "right" } },
-        { content: fmtDuration(weekNetMinutes(week.dates), { compact: true }), styles: { fillColor: [244, 246, 248], fontStyle: "bold", halign: "center" } },
-        { content: "", styles: { fillColor: [244, 246, 248] } }
+        { content: `FINAL SEMANA ${weekIndex + 1}`, colSpan: 5, styles: { fillColor: [245, 246, 247], fontStyle: "bold", halign: "right" } },
+        { content: fmtDuration(weekNetMinutes(week.dates), { compact: true }), styles: { fillColor: [245, 246, 247], fontStyle: "bold", halign: "center" } },
+        { content: "", styles: { fillColor: [245, 246, 247] } }
       ];
       if (hasTransport) {
         subtotal.push({
           content: weekEntries.reduce((sum, entry) => sum + (Number(entry.transport) || 0), 0) ? fmtMoney(weekEntries.reduce((sum, entry) => sum + (Number(entry.transport) || 0), 0)).replace(/\s/g, " ") : "",
-          styles: { fillColor: [244, 246, 248], fontStyle: "bold", halign: "right" }
+          styles: { fillColor: [245, 246, 247], fontStyle: "bold", halign: "right" }
         });
       }
       body.push(subtotal);
@@ -1105,8 +1138,8 @@
 
     const styles = {
       font: "helvetica",
-      fontSize: 7.1,
-      cellPadding: 1.35,
+      fontSize: 7.15,
+      cellPadding: 1.55,
       valign: "middle",
       lineColor: [0, 0, 0],
       lineWidth: 0.18,
@@ -1116,34 +1149,34 @@
     const columnStyles = hasTransport
       ? {
           0: { cellWidth: 48 }, 1: { cellWidth: 23, halign: "center" }, 2: { cellWidth: 23, halign: "center" },
-          3: { cellWidth: 28, halign: "center" }, 4: { cellWidth: 23, halign: "center", fillColor: [255, 242, 225] },
+          3: { cellWidth: 28, halign: "center" }, 4: { cellWidth: 23, halign: "center", fillColor: [248, 244, 237] },
           5: { cellWidth: 29, halign: "center", fontStyle: "bold" }, 6: { cellWidth: 72 }, 7: { cellWidth: 31, halign: "right" }
         }
       : {
           0: { cellWidth: 50 }, 1: { cellWidth: 24, halign: "center" }, 2: { cellWidth: 24, halign: "center" },
-          3: { cellWidth: 29, halign: "center" }, 4: { cellWidth: 24, halign: "center", fillColor: [255, 242, 225] },
+          3: { cellWidth: 29, halign: "center" }, 4: { cellWidth: 24, halign: "center", fillColor: [248, 244, 237] },
           5: { cellWidth: 30, halign: "center", fontStyle: "bold" }, 6: { cellWidth: 96 }
         };
 
     doc.autoTable({
       startY: y,
-      margin: { left, right: left, top: 10, bottom: 10 },
+      margin: { left, right: left, top: 12, bottom: 12 },
       head,
       body,
       theme: "grid",
       styles,
-      headStyles: { fillColor: [31, 95, 139], textColor: 255, fontStyle: "bold", halign: "center", fontSize: 7.4, cellPadding: 1.5 },
+      headStyles: { fillColor: [47, 58, 69], textColor: 255, fontStyle: "bold", halign: "center", fontSize: 7.45, cellPadding: 1.7 },
       columnStyles,
       showHead: "everyPage"
     });
 
     y = doc.lastAutoTable.finalY + 4;
-    if (y > 166) {
+    if (y > 164) {
       doc.addPage("a4", "landscape");
-      y = 14;
+      y = 15;
     }
 
-    doc.setFillColor(221, 228, 233);
+    doc.setFillColor(229, 231, 234);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.2);
     doc.rect(left, y, pageWidth - left * 2, 8, "FD");
@@ -1156,7 +1189,11 @@
     const generalNote = `NOTA GENERAL: Las horas laboradas corresponden a la permanencia menos el tiempo de almuerzo. Total horas a cancelar: ${fmtDuration(totalNetMinutes())} + auxilio diario pactado por ${Number($("aidDays").value)} días.`;
     const generalLines = doc.splitTextToSize(generalNote, pageWidth - left * 2 - 6);
     const generalNoteHeight = Math.max(12, 5 + generalLines.length * 3.2);
-    doc.setFillColor(255, 242, 199);
+    if (y + generalNoteHeight + 24 > pageBottom) {
+      doc.addPage("a4", "landscape");
+      y = 15;
+    }
+    doc.setFillColor(248, 246, 240);
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.2);
     doc.rect(left, y, pageWidth - left * 2, generalNoteHeight, "FD");
@@ -1171,11 +1208,11 @@
       const userText = `NOTA ADICIONAL: ${userNote}`;
       const userLines = doc.splitTextToSize(userText, pageWidth - left * 2 - 6);
       const userNoteHeight = Math.max(12, 5 + userLines.length * 3.4);
-      if (y + userNoteHeight + 22 > 198) {
+      if (y + userNoteHeight + 22 > pageBottom) {
         doc.addPage("a4", "landscape");
-        y = 14;
+        y = 15;
       }
-      doc.setFillColor(247, 250, 252);
+      doc.setFillColor(255, 255, 255);
       doc.setDrawColor(0, 0, 0);
       doc.rect(left, y, pageWidth - left * 2, userNoteHeight, "FD");
       doc.setTextColor(24, 33, 43);
@@ -1183,6 +1220,11 @@
       doc.setFont("helvetica", "bold");
       doc.text(userLines, left + 3, y + 4.2);
       y += userNoteHeight + 4;
+    }
+
+    if (y + 18 > pageBottom) {
+      doc.addPage("a4", "landscape");
+      y = 15;
     }
 
     doc.setTextColor(24, 33, 43);
@@ -1241,7 +1283,7 @@
       try {
         const data = JSON.parse(String(reader.result));
         if (!data || !Array.isArray(data.entries)) throw new Error("Formato inválido");
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, version: 3 }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, version: 4 }));
         window.location.reload();
       } catch {
         window.alert("La copia de seguridad no tiene un formato válido.");
@@ -1283,25 +1325,38 @@
   }
 
   function bind() {
-    ["workerFirstNames", "workerLastNames", "workerId", "workerRole", "aidDays", "finalNote"].forEach((id) => {
-      $(id).addEventListener("input", () => {
-        save();
-        if (id === "aidDays") renderSummary();
-      });
-    });
-
     ["workerFirstNames", "workerLastNames"].forEach((id) => {
+      $(id).addEventListener("input", () => {
+        $(id).value = normalizeNameWhileTyping($(id).value);
+        save();
+      });
       $(id).addEventListener("blur", () => {
         $(id).value = normalizeNameValue($(id).value);
         save();
       });
     });
+
+    $("workerRole").addEventListener("input", () => {
+      $("workerRole").value = normalizeSentenceWhileTyping($("workerRole").value);
+      save();
+    });
     $("workerRole").addEventListener("blur", () => {
       $("workerRole").value = normalizeLabelValue($("workerRole").value);
       save();
     });
-    $("workerId").addEventListener("blur", () => {
-      $("workerId").value = cleanSpaces($("workerId").value);
+
+    $("workerId").addEventListener("input", () => {
+      $("workerId").value = digitsOnly($("workerId").value);
+      save();
+    });
+
+    $("aidDays").addEventListener("input", () => {
+      save();
+      renderSummary();
+    });
+
+    $("finalNote").addEventListener("input", () => {
+      $("finalNote").value = normalizeSentenceWhileTyping($("finalNote").value);
       save();
     });
     $("finalNote").addEventListener("blur", () => {
@@ -1323,6 +1378,9 @@
       $(id).addEventListener("change", updateCalculationPreview);
     });
     $("projectChoice").addEventListener("change", () => toggleProjectInput({ focus: true }));
+    $("projectNew").addEventListener("input", () => {
+      $("projectNew").value = String($("projectNew").value || "").toLocaleUpperCase("es-CO");
+    });
     $("projectNew").addEventListener("blur", () => {
       $("projectNew").value = normalizeProjectValue($("projectNew").value);
     });

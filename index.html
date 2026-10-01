@@ -125,7 +125,7 @@
         </label>
         <label>
           <span>Cédula</span>
-          <input id="workerId" type="text" inputmode="numeric" autocomplete="off" placeholder="Número de documento">
+          <input id="workerId" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="Número de documento">
         </label>
         <label>
           <span>Cargo</span>
@@ -176,11 +176,15 @@
         <small>Este dato se solicita en cada quincena y puede ser distinto de los días trabajados.</small>
       </label>
 
-      <label class="final-note-field">
-        <span>Nota al final del documento <em>opcional</em></span>
-        <textarea id="finalNote" rows="4" maxlength="600" autocapitalize="sentences" placeholder="Escribe una nota para incluir al final del reporte."></textarea>
-        <small>La nota se incluirá en negrilla en Excel y PDF.</small>
-      </label>
+      <div class="final-note-field">
+        <label class="final-note-label" for="finalNote">
+          <span>Nota al final del documento <em>opcional</em></span>
+        </label>
+        <div class="note-editor">
+          <textarea id="finalNote" rows="4" maxlength="600" autocapitalize="sentences" placeholder="Escribe la nota que se incluirá al final del reporte." aria-describedby="finalNoteHelp"></textarea>
+        </div>
+        <small id="finalNoteHelp">La nota se incluirá en negrilla en Excel y PDF.</small>
+      </div>
 
       <div class="quincena-end" id="quincenaEndMarker"></div>
     </section>
@@ -236,7 +240,7 @@
         <div class="time-picker" data-time-picker="start">
           <label><span>Hora</span><select id="startHour"></select></label>
           <label><span>Minutos</span><select id="startMinute"></select></label>
-          <label><span>Periodo</span><select id="startPeriod"><option value="">--</option><option value="AM">a. m.</option><option value="PM">p. m.</option></select></label>
+          <label><span>Periodo</span><select id="startPeriod"><option value="">--</option><option value="AM">AM</option><option value="PM">PM</option></select></label>
         </div>
       </fieldset>
 
@@ -245,7 +249,7 @@
         <div class="time-picker" data-time-picker="end">
           <label><span>Hora</span><select id="endHour"></select></label>
           <label><span>Minutos</span><select id="endMinute"></select></label>
-          <label><span>Periodo</span><select id="endPeriod"><option value="">--</option><option value="AM">a. m.</option><option value="PM">p. m.</option></select></label>
+          <label><span>Periodo</span><select id="endPeriod"><option value="">--</option><option value="AM">AM</option><option value="PM">PM</option></select></label>
         </div>
       </fieldset>
 
@@ -254,10 +258,10 @@
           <span>Almuerzo</span>
           <select id="lunchHours">
             <option value="">Seleccionar</option>
-            <option value="0">0 horas</option>
+            <option value="0.5">30 minutos</option>
             <option value="1">1 hora</option>
+            <option value="1.5">1 hora 30 minutos</option>
             <option value="2">2 horas</option>
-            <option value="3">3 horas</option>
           </select>
         </label>
         <div class="project-control">
@@ -270,7 +274,7 @@
           </label>
           <label id="projectNewField" hidden>
             <span>Nuevo proyecto / planta</span>
-            <input id="projectNew" type="text" autocomplete="off" autocapitalize="words" placeholder="Proyecto o planta">
+            <input id="projectNew" type="text" autocomplete="off" autocapitalize="characters" placeholder="Proyecto o planta">
           </label>
         </div>
         <label class="transport-field">
