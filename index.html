@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reporte quincenal de tiempo laborado</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">REPORTE QUINCENAL</p>
+        <h1>Tiempo laborado</h1>
+        <p class="subtitle">Registra los turnos una sola vez. La aplicación calcula permanencia, almuerzo, horas laboradas, semanas, transporte y genera Excel + PDF.</p>
+      </div>
+      <div class="status" id="saveStatus">Guardado local automático</div>
+    </header>
+
+    <section class="card">
+      <div class="section-title">
+        <div><span class="step">1</span><h2>Datos del trabajador y quincena</h2></div>
+        <button class="button ghost" id="resetAllBtn" type="button">Restablecer</button>
+      </div>
+      <div class="grid four">
+        <label>Nombre
+          <input id="workerName" type="text" placeholder="Nombre completo" />
+        </label>
+        <label>Cédula
+          <input id="workerId" type="text" placeholder="Número de documento" />
+        </label>
+        <label>Cargo
+          <input id="workerRole" type="text" placeholder="Cargo" />
+        </label>
+        <label>Fecha de elaboración
+          <input id="documentDate" type="date" />
+        </label>
+      </div>
+      <div class="grid four compact-top">
+        <label>Año
+          <input id="year" type="number" min="2020" max="2100" />
+        </label>
+        <label>Mes
+          <select id="month"></select>
+        </label>
+        <label>Quincena
+          <select id="half">
+            <option value="1">1.ª quincena (1–15)</option>
+            <option value="2">2.ª quincena (16–fin de mes)</option>
+          </select>
+        </label>
+        <label>Rango
+          <input id="periodText" type="text" readonly />
+        </label>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <div><span class="step">2</span><h2>Agregar jornada</h2></div>
+        <span class="hint">Las horas laboradas = permanencia − almuerzo.</span>
+      </div>
+      <div class="grid seven">
+        <label>Fecha
+          <input id="workDate" type="date" />
+        </label>
+        <label>Ingreso
+          <input id="startTime" type="time" />
+        </label>
+        <label>Salida
+          <input id="endTime" type="time" />
+        </label>
+        <label>Almuerzo (h)
+          <input id="lunchHours" type="number" min="0" max="8" step="0.25" value="1" />
+        </label>
+        <label class="project-field">Proyecto / planta
+          <input id="project" type="text" list="projectList" placeholder="Ej. FAMILIA PUERTO / GAS" />
+          <datalist id="projectList"></datalist>
+        </label>
+        <label>Transporte (COP)
+          <input id="transport" type="number" min="0" step="1000" value="30000" />
+        </label>
+        <div class="add-wrap">
+          <button class="button primary" id="addEntryBtn" type="button">Agregar jornada</button>
+        </div>
+      </div>
+      <p class="validation" id="entryError"></p>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <div><span class="step">3</span><h2>Jornadas registradas</h2></div>
+        <div class="summary-pills">
+          <span id="daysPill">0 días</span>
+          <span id="hoursPill">0 h</span>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Ingreso</th>
+              <th>Salida</th>
+              <th>Permanencia</th>
+              <th>Almuerzo</th>
+              <th>Horas laboradas</th>
+              <th>Proyecto</th>
+              <th>Transporte</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="entriesBody"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="empty">Aún no hay jornadas en esta quincena.</div>
+    </section>
+
+    <section class="card">
+      <div class="section-title">
+        <div><span class="step">4</span><h2>Resumen y auxilios</h2></div>
+      </div>
+      <div class="grid four">
+        <label>Días con auxilio diario pactado
+          <input id="aidDays" type="number" min="0" max="31" step="1" />
+          <small>Se propone automáticamente igual a los días trabajados; puedes cambiarlo.</small>
+        </label>
+        <label>Porcentaje transporte a cargo del empleador
+          <input id="employerTransportPct" type="number" min="0" max="100" step="1" value="100" />
+        </label>
+        <label>Total transporte registrado
+          <input id="transportTotal" type="text" readonly />
+        </label>
+        <label>Transporte a cargo del empleador
+          <input id="employerTransportTotal" type="text" readonly />
+        </label>
+      </div>
+      <div class="note-preview" id="notePreview"></div>
+    </section>
+
+    <section class="actions">
+      <button class="button primary big" id="downloadExcelBtn" type="button">Descargar Excel</button>
+      <button class="button dark big" id="downloadPdfBtn" type="button">Descargar PDF</button>
+      <button class="button ghost" id="newPeriodBtn" type="button">Nueva quincena</button>
+      <button class="button ghost" id="exportBackupBtn" type="button">Respaldar datos</button>
+      <label class="button ghost file-button">Importar respaldo<input id="importBackupInput" type="file" accept="application/json" /></label>
+    </section>
+
+    <footer>
+      Todo se guarda en este navegador. No se envían datos a un servidor.
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
