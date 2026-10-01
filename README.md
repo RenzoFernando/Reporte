@@ -1,33 +1,54 @@
-# Reporte quincenal de tiempo laborado
+<div align="center">
 
-Aplicación estática, sin backend, pensada para publicarse gratis en GitHub Pages.
+# Reporte
 
-## Qué hace
-- Guarda los datos fijos del trabajador en el navegador; no quedan escritos en el código público del sitio.
-- Permite elegir año, mes y 1.ª/2.ª quincena.
-- Registra jornadas con ingreso, salida, almuerzo, proyecto y transporte.
-- Calcula automáticamente permanencia y horas laboradas.
-- Agrupa por semanas de lunes a domingo.
-- Genera un Excel `.xlsx` y un PDF `.pdf`.
-- Mantiene en blanco la firma del supervisor.
-- Escribe la firma del trabajador con su nombre en estilo cursivo.
-- Calcula el transporte registrado y el porcentaje a cargo del empleador.
-- Permite indicar de forma independiente los días de auxilio diario pactado.
-- Guarda todo en `localStorage`; no requiere base de datos.
+<br>
 
-## Probar localmente
-Abre `index.html` en un navegador moderno con conexión a internet. Las librerías para generar Excel y PDF se cargan desde jsDelivr.
+<img src="assets/images/logo-reporte.png" alt="Logo de Reporte" width="120">
 
-## Publicar en GitHub Pages
-1. Crea un repositorio, por ejemplo `reporte-quincenal`.
-2. Sube `index.html`, `styles.css` y `app.js` a la raíz.
-3. En GitHub: **Settings → Pages**.
-4. En **Build and deployment**, elige **Deploy from a branch**.
-5. Selecciona `main` y `/ (root)`.
-6. Guarda. GitHub mostrará la URL pública.
+<br>
 
-## Flujo recomendado
-En vez de que el trabajador mande una foto y otra persona transcriba todo, el trabajador abre la página desde el celular al terminar cada jornada y registra el turno. Al final de la quincena solo se revisa y se descargan Excel y PDF.
+<p>
+  <a href="https://renzofernando.github.io/Reporte/">
+    <img src="https://img.shields.io/badge/VER%20APLICACIÓN%20WEB-1F5F8B?style=for-the-badge" alt="Ver aplicación web">
+  </a>
+</p>
 
-## Limitación actual
-Esta versión no interpreta automáticamente una foto de la libreta. Si se quiere conservar el flujo "mandar foto", la siguiente versión debería integrar OCR/visión con un servicio externo o con una automatización que procese la foto y llene los registros.
+<strong>Registro quincenal de tiempo laborado.</strong>
+
+</div>
+
+<br>
+
+Reporte es una aplicación web mobile-first para registrar jornadas por quincena desde el celular. Organiza automáticamente los días por semanas, calcula permanencia y horas laboradas, y genera el reporte final en Excel y PDF.
+
+La información del trabajador y las jornadas se guarda localmente en el navegador del dispositivo. No requiere una cuenta ni una base de datos propia.
+
+## Características
+
+- Registro por semanas y días de cada quincena.
+- Horarios en intervalos de 10 minutos.
+- Almuerzo seleccionable entre 0 y 3 horas.
+- Edición y eliminación de jornadas registradas.
+- Cálculo automático de permanencia y horas laboradas.
+- Transporte diario opcional y total automático cuando se utiliza.
+- Campo obligatorio para confirmar los días de auxilio diario pactado.
+- Firma del trabajador con nombre completo y firma del supervisor en blanco.
+- Generación de un único Excel con la hoja `Reporte` y exportación a PDF.
+- Guardado local, copia de seguridad e importación de datos.
+- Diseño responsive optimizado para móvil y compatible con escritorio.
+- Manifest y service worker para una experiencia instalable cuando el navegador lo permita.
+
+## Tecnologías
+
+- HTML5
+- CSS3
+- JavaScript
+- ExcelJS
+- jsPDF + AutoTable
+
+## Autor y licencia
+
+[Renzo Fernando Mosquera Daza](https://github.com/RenzoFernando)
+
+Licencia MIT.

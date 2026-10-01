@@ -1,0 +1,25 @@
+# Reporte
+
+Reporte es una aplicación web estática para registrar jornadas de trabajo por quincena.
+
+Capacidades públicas:
+- organizar los días de una quincena por semanas;
+- registrar y editar hora de ingreso, salida, almuerzo, proyecto y transporte opcional;
+- calcular permanencia y horas laboradas;
+- generar un archivo Excel y un PDF del reporte;
+- guardar la información localmente en el navegador del dispositivo.
+
+Página principal:
+- https://renzofernando.github.io/Reporte/
+
+Repositorio previsto:
+- https://github.com/RenzoFernando/Reporte
+
+Autor:
+- Renzo Fernando Mosquera Daza
+- https://github.com/RenzoFernando
+
+Límites:
+- La aplicación no interpreta fotografías de libretas.
+- La generación de Excel y PDF utiliza librerías cargadas desde jsDelivr; la primera carga requiere conexión.
+- No existe una base de datos o servidor propio para almacenar los datos del trabajador.

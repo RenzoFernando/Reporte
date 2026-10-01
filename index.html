@@ -1,158 +1,283 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Reporte quincenal de tiempo laborado</title>
-  <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f5f8b">
+  <meta name="color-scheme" content="light">
+  <meta name="robots" content="index,follow">
+  <meta name="author" content="Renzo Fernando Mosquera Daza">
+  <meta name="description" content="Reporte es una aplicación web para registrar jornadas por quincena, calcular horas laboradas y generar reportes en Excel y PDF desde el celular.">
+
+  <title>Reporte | Tiempo laborado en Excel y PDF</title>
+  <link rel="canonical" href="https://renzofernando.github.io/Reporte/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_CO">
+  <meta property="og:title" content="Reporte | Tiempo laborado">
+  <meta property="og:description" content="Registra jornadas por quincena y genera Excel y PDF desde el celular.">
+  <meta property="og:url" content="https://renzofernando.github.io/Reporte/">
+  <meta property="og:image" content="https://renzofernando.github.io/Reporte/assets/images/og-reporte.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Reporte, aplicación para registrar tiempo laborado">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Reporte | Tiempo laborado">
+  <meta name="twitter:description" content="Registra jornadas por quincena y genera Excel y PDF desde el celular.">
+  <meta name="twitter:image" content="https://renzofernando.github.io/Reporte/assets/images/og-reporte.png">
+
+  <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
+  <link rel="stylesheet" href="assets/css/main.css">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Reporte",
+    "url": "https://renzofernando.github.io/Reporte/",
+    "description": "Aplicación web para registrar jornadas por quincena, calcular horas laboradas y generar reportes en Excel y PDF.",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Any",
+    "inLanguage": "es-CO",
+    "isAccessibleForFree": true,
+    "author": {
+      "@type": "Person",
+      "name": "Renzo Fernando Mosquera Daza",
+      "url": "https://github.com/RenzoFernando"
+    }
+  }
+  </script>
+
+  <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+  <script defer src="assets/js/main.js"></script>
 </head>
 <body>
-  <main class="shell">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">REPORTE QUINCENAL</p>
-        <h1>Tiempo laborado</h1>
-        <p class="subtitle">Registra los turnos una sola vez. La aplicación calcula permanencia, almuerzo, horas laboradas, semanas, transporte y genera Excel + PDF.</p>
-      </div>
-      <div class="status" id="saveStatus">Guardado local automático</div>
-    </header>
+  <a class="skip-link" href="#main">Saltar al contenido</a>
 
-    <section class="card">
-      <div class="section-title">
-        <div><span class="step">1</span><h2>Datos del trabajador y quincena</h2></div>
-        <button class="button ghost" id="resetAllBtn" type="button">Restablecer</button>
+  <header class="app-header">
+    <a class="brand" href="./" aria-label="Ir al inicio de Reporte">
+      <img src="assets/icons/favicon.svg" alt="" width="30" height="30">
+      <span>Reporte</span>
+    </a>
+    <span class="save-status" id="saveStatus" role="status" aria-live="polite">Guardado</span>
+  </header>
+
+  <main id="main" class="app-shell">
+    <section class="intro" aria-labelledby="pageTitle">
+      <p class="kicker">REPORTE QUINCENAL</p>
+      <h1 id="pageTitle">Tiempo laborado</h1>
+      <p>Registra únicamente los días trabajados. La aplicación organiza la quincena por semanas y calcula las horas automáticamente.</p>
+    </section>
+
+    <section class="panel period-panel" aria-labelledby="periodTitle">
+      <div class="section-heading">
+        <div>
+          <span class="section-number" aria-hidden="true">1</span>
+          <div>
+            <h2 id="periodTitle">Quincena</h2>
+            <p id="periodSummary">Selecciona el periodo del reporte.</p>
+          </div>
+        </div>
       </div>
-      <div class="grid four">
-        <label>Nombre
-          <input id="workerName" type="text" placeholder="Nombre completo" />
+      <div class="form-grid period-grid">
+        <label>
+          <span>Año</span>
+          <input id="year" type="number" inputmode="numeric" min="2020" max="2100" autocomplete="off">
         </label>
-        <label>Cédula
-          <input id="workerId" type="text" placeholder="Número de documento" />
-        </label>
-        <label>Cargo
-          <input id="workerRole" type="text" placeholder="Cargo" />
-        </label>
-        <label>Fecha de elaboración
-          <input id="documentDate" type="date" />
-        </label>
-      </div>
-      <div class="grid four compact-top">
-        <label>Año
-          <input id="year" type="number" min="2020" max="2100" />
-        </label>
-        <label>Mes
+        <label>
+          <span>Mes</span>
           <select id="month"></select>
         </label>
-        <label>Quincena
+        <label>
+          <span>Quincena</span>
           <select id="half">
-            <option value="1">1.ª quincena (1–15)</option>
-            <option value="2">2.ª quincena (16–fin de mes)</option>
+            <option value="1">Primera · 1 al 15</option>
+            <option value="2">Segunda · 16 al final</option>
           </select>
         </label>
-        <label>Rango
-          <input id="periodText" type="text" readonly />
+      </div>
+      <div class="period-banner" id="periodBanner"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="workerTitle">
+      <div class="section-heading">
+        <div>
+          <span class="section-number" aria-hidden="true">2</span>
+          <div>
+            <h2 id="workerTitle">Trabajador</h2>
+            <p>Estos datos se guardan en este dispositivo.</p>
+          </div>
+        </div>
+      </div>
+      <div class="form-grid worker-grid">
+        <label>
+          <span>Nombres</span>
+          <input id="workerFirstNames" type="text" autocomplete="given-name" placeholder="Ej. Leandro">
+        </label>
+        <label>
+          <span>Apellidos</span>
+          <input id="workerLastNames" type="text" autocomplete="family-name" placeholder="Ej. Daza Jaimes">
+        </label>
+        <label>
+          <span>Cédula</span>
+          <input id="workerId" type="text" inputmode="numeric" autocomplete="off" placeholder="Número de documento">
+        </label>
+        <label>
+          <span>Cargo</span>
+          <input id="workerRole" type="text" autocomplete="organization-title" placeholder="Cargo del trabajador">
         </label>
       </div>
     </section>
 
-    <section class="card">
-      <div class="section-title">
-        <div><span class="step">2</span><h2>Agregar jornada</h2></div>
-        <span class="hint">Las horas laboradas = permanencia − almuerzo.</span>
+    <section class="panel days-panel" aria-labelledby="daysTitle">
+      <div class="section-heading days-heading">
+        <div>
+          <span class="section-number" aria-hidden="true">3</span>
+          <div>
+            <h2 id="daysTitle">Jornadas</h2>
+            <p>Toca un día para registrarlo. Puedes editarlo o eliminarlo después.</p>
+          </div>
+        </div>
+        <div class="summary-chips" aria-label="Resumen de jornadas">
+          <span id="daysChip">0 días</span>
+          <span id="hoursChip">0 h</span>
+        </div>
       </div>
-      <div class="grid seven">
-        <label>Fecha
-          <input id="workDate" type="date" />
+
+      <div class="quincena-marker" id="quincenaStartMarker"></div>
+      <div id="weeksContainer" class="weeks" aria-live="polite"></div>
+    </section>
+
+    <section class="panel close-panel" aria-labelledby="closeTitle">
+      <div class="section-heading">
+        <div>
+          <span class="section-number" aria-hidden="true">4</span>
+          <div>
+            <h2 id="closeTitle">Cierre del reporte</h2>
+            <p>Confirma el auxilio pactado antes de descargar.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="summary-grid">
+        <div class="metric"><span>Días trabajados</span><strong id="workedDaysSummary">0</strong></div>
+        <div class="metric"><span>Horas laboradas</span><strong id="workedHoursSummary">0 h</strong></div>
+        <div class="metric transport-metric" id="transportMetric" hidden><span>Transporte registrado</span><strong id="transportSummary">$0</strong></div>
+      </div>
+
+      <label class="aid-field">
+        <span>Días con auxilio diario pactado <b aria-hidden="true">*</b></span>
+        <input id="aidDays" type="number" inputmode="numeric" min="0" max="31" step="1" placeholder="Ej. 13">
+        <small>Este dato se solicita en cada quincena y puede ser distinto de los días trabajados.</small>
+      </label>
+
+      <div class="note-preview" id="notePreview"></div>
+      <div class="quincena-end" id="quincenaEndMarker"></div>
+    </section>
+
+    <details class="tools-panel">
+      <summary>Herramientas y opciones</summary>
+      <div class="tools-grid">
+        <button class="button secondary" id="newPeriodBtn" type="button">Nueva quincena</button>
+        <button class="button secondary" id="exportBackupBtn" type="button">Crear copia de seguridad</button>
+        <label class="button secondary file-button">Importar copia<input id="importBackupInput" type="file" accept="application/json"></label>
+        <button class="button secondary" id="shareBtn" type="button">Compartir aplicación</button>
+        <button class="button secondary" id="installBtn" type="button" hidden>Instalar aplicación</button>
+        <button class="button danger" id="resetAllBtn" type="button">Borrar datos guardados</button>
+      </div>
+      <p class="privacy-note">Los datos del trabajador y las jornadas se almacenan en el navegador de este dispositivo. La aplicación no incluye servidor propio.</p>
+    </details>
+  </main>
+
+  <div class="export-bar" id="exportBar" aria-label="Descargar reporte">
+    <div class="export-bar-inner">
+      <button class="button excel-button" id="downloadExcelBtn" type="button">
+        <span aria-hidden="true">XLSX</span>
+        <strong>Excel</strong>
+      </button>
+      <button class="button primary pdf-button" id="downloadPdfBtn" type="button">
+        <span aria-hidden="true">PDF</span>
+        <strong>PDF</strong>
+      </button>
+    </div>
+  </div>
+
+  <footer class="project-footer">
+    <p><a href="https://github.com/RenzoFernando/Reporte" target="_blank" rel="noopener noreferrer"><strong>Reporte</strong></a><span> — Registro de tiempo laborado</span></p>
+    <p>© <span data-current-year></span> — Renzo Fernando Mosquera Daza</p>
+  </footer>
+
+  <dialog id="dayDialog" class="day-dialog" aria-labelledby="dayDialogTitle">
+    <form method="dialog" id="dayForm" class="day-sheet">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <div class="dialog-heading">
+        <div>
+          <p class="dialog-kicker" id="dayDialogWeek">JORNADA</p>
+          <h2 id="dayDialogTitle">Registrar día</h2>
+          <p id="dayDialogDate"></p>
+        </div>
+        <button class="icon-button" id="closeDialogBtn" type="button" aria-label="Cerrar">×</button>
+      </div>
+
+      <input id="editingDate" type="hidden">
+
+      <fieldset class="time-fieldset">
+        <legend>Hora de ingreso</legend>
+        <div class="time-picker" data-time-picker="start">
+          <label><span>Hora</span><select id="startHour"></select></label>
+          <label><span>Minutos</span><select id="startMinute"></select></label>
+          <label><span>Periodo</span><select id="startPeriod"><option value="AM">a. m.</option><option value="PM">p. m.</option></select></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="time-fieldset">
+        <legend>Hora de salida</legend>
+        <div class="time-picker" data-time-picker="end">
+          <label><span>Hora</span><select id="endHour"></select></label>
+          <label><span>Minutos</span><select id="endMinute"></select></label>
+          <label><span>Periodo</span><select id="endPeriod"><option value="AM">a. m.</option><option value="PM">p. m.</option></select></label>
+        </div>
+      </fieldset>
+
+      <div class="dialog-form-grid">
+        <label>
+          <span>Almuerzo</span>
+          <select id="lunchHours">
+            <option value="0">0 horas</option>
+            <option value="1" selected>1 hora</option>
+            <option value="2">2 horas</option>
+            <option value="3">3 horas</option>
+          </select>
         </label>
-        <label>Ingreso
-          <input id="startTime" type="time" />
-        </label>
-        <label>Salida
-          <input id="endTime" type="time" />
-        </label>
-        <label>Almuerzo (h)
-          <input id="lunchHours" type="number" min="0" max="8" step="0.25" value="1" />
-        </label>
-        <label class="project-field">Proyecto / planta
-          <input id="project" type="text" list="projectList" placeholder="Ej. FAMILIA PUERTO / GAS" />
+        <label>
+          <span>Proyecto / planta</span>
+          <input id="project" type="text" list="projectList" placeholder="Ej. FAMILIA PUERTO / GAS" autocomplete="off">
           <datalist id="projectList"></datalist>
         </label>
-        <label>Transporte (COP)
-          <input id="transport" type="number" min="0" step="1000" value="30000" />
+        <label class="transport-field">
+          <span>Transporte del día <em>opcional</em></span>
+          <input id="transport" type="number" inputmode="numeric" min="0" step="1000" placeholder="0">
         </label>
-        <div class="add-wrap">
-          <button class="button primary" id="addEntryBtn" type="button">Agregar jornada</button>
+      </div>
+
+      <div class="calculation-preview" id="calculationPreview">Permanencia: 8 h · Almuerzo: 1 h · Laboradas: 7 h</div>
+      <p class="form-error" id="entryError" role="alert"></p>
+
+      <div class="dialog-actions">
+        <button class="button danger text-danger" id="deleteEntryBtn" type="button" hidden>Eliminar</button>
+        <div class="dialog-actions-right">
+          <button class="button secondary" id="cancelDialogBtn" type="button">Cancelar</button>
+          <button class="button primary" id="saveEntryBtn" type="button">Guardar jornada</button>
         </div>
       </div>
-      <p class="validation" id="entryError"></p>
-    </section>
+    </form>
+  </dialog>
 
-    <section class="card">
-      <div class="section-title">
-        <div><span class="step">3</span><h2>Jornadas registradas</h2></div>
-        <div class="summary-pills">
-          <span id="daysPill">0 días</span>
-          <span id="hoursPill">0 h</span>
-        </div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Fecha</th>
-              <th>Ingreso</th>
-              <th>Salida</th>
-              <th>Permanencia</th>
-              <th>Almuerzo</th>
-              <th>Horas laboradas</th>
-              <th>Proyecto</th>
-              <th>Transporte</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="entriesBody"></tbody>
-        </table>
-      </div>
-      <div id="emptyState" class="empty">Aún no hay jornadas en esta quincena.</div>
-    </section>
-
-    <section class="card">
-      <div class="section-title">
-        <div><span class="step">4</span><h2>Resumen y auxilios</h2></div>
-      </div>
-      <div class="grid four">
-        <label>Días con auxilio diario pactado
-          <input id="aidDays" type="number" min="0" max="31" step="1" />
-          <small>Se propone automáticamente igual a los días trabajados; puedes cambiarlo.</small>
-        </label>
-        <label>Porcentaje transporte a cargo del empleador
-          <input id="employerTransportPct" type="number" min="0" max="100" step="1" value="100" />
-        </label>
-        <label>Total transporte registrado
-          <input id="transportTotal" type="text" readonly />
-        </label>
-        <label>Transporte a cargo del empleador
-          <input id="employerTransportTotal" type="text" readonly />
-        </label>
-      </div>
-      <div class="note-preview" id="notePreview"></div>
-    </section>
-
-    <section class="actions">
-      <button class="button primary big" id="downloadExcelBtn" type="button">Descargar Excel</button>
-      <button class="button dark big" id="downloadPdfBtn" type="button">Descargar PDF</button>
-      <button class="button ghost" id="newPeriodBtn" type="button">Nueva quincena</button>
-      <button class="button ghost" id="exportBackupBtn" type="button">Respaldar datos</button>
-      <label class="button ghost file-button">Importar respaldo<input id="importBackupInput" type="file" accept="application/json" /></label>
-    </section>
-
-    <footer>
-      Todo se guarda en este navegador. No se envían datos a un servidor.
-    </footer>
-  </main>
-  <script src="app.js"></script>
+  <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 </body>
 </html>
