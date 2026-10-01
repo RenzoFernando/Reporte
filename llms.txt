@@ -5,6 +5,8 @@ Reporte es una aplicación web estática para registrar jornadas de trabajo por 
 Capacidades públicas:
 - organizar los días de una quincena por semanas;
 - registrar y editar hora de ingreso, salida, almuerzo, proyecto y transporte opcional;
+- reutilizar proyectos o plantas guardados en el dispositivo;
+- añadir una nota opcional al cierre del reporte;
 - calcular permanencia y horas laboradas;
 - generar un archivo Excel y un PDF del reporte;
 - guardar la información localmente en el navegador del dispositivo.

@@ -10,6 +10,7 @@
 
   let state = {
     entries: [],
+    projectHistory: [],
     period: null,
     installPrompt: null
   };
@@ -107,8 +108,59 @@
     return date.getFullYear() === period.year && date.getMonth() === period.month && date.getDate() >= period.start && date.getDate() <= period.end;
   }
 
+  function cleanSpaces(value) {
+    return String(value ?? "").replace(/\s+/g, " ").trim();
+  }
+
+  function normalizeNameValue(value) {
+    const text = cleanSpaces(value).toLocaleLowerCase("es-CO");
+    return text.replace(/(^|[\s'-])([a-záéíóúüñ])/g, (match, prefix, letter) => `${prefix}${letter.toLocaleUpperCase("es-CO")}`);
+  }
+
+  function normalizeLabelValue(value) {
+    const text = cleanSpaces(value).toLocaleLowerCase("es-CO");
+    return text ? text.charAt(0).toLocaleUpperCase("es-CO") + text.slice(1) : "";
+  }
+
+  function normalizeSentenceValue(value, { finalPeriod = false } = {}) {
+    let text = cleanSpaces(value).toLocaleLowerCase("es-CO");
+    if (!text) return "";
+    text = text.charAt(0).toLocaleUpperCase("es-CO") + text.slice(1);
+    if (finalPeriod && !/[.!?]$/.test(text)) text += ".";
+    return text;
+  }
+
+  function normalizeProjectValue(value) {
+    const cleaned = cleanSpaces(value);
+    if (!cleaned) return "";
+    const isUniformCase = cleaned === cleaned.toLocaleUpperCase("es-CO") || cleaned === cleaned.toLocaleLowerCase("es-CO");
+    if (!isUniformCase) return cleaned;
+    const connectors = new Set(["de", "del", "la", "las", "los", "y", "e", "en", "para", "por", "al"]);
+    return cleaned.toLocaleLowerCase("es-CO").split(/(\s+|\/)/).map((token) => {
+      if (!token.trim() || token === "/") return token;
+      if (connectors.has(token)) return token;
+      if (/^[a-záéíóúüñ]{2,3}$/.test(token)) return token.toLocaleUpperCase("es-CO");
+      return token.charAt(0).toLocaleUpperCase("es-CO") + token.slice(1);
+    }).join("");
+  }
+
+  function normalizeWorkerFields() {
+    $("workerFirstNames").value = normalizeNameValue($("workerFirstNames").value);
+    $("workerLastNames").value = normalizeNameValue($("workerLastNames").value);
+    $("workerRole").value = normalizeLabelValue($("workerRole").value);
+    $("workerId").value = cleanSpaces($("workerId").value);
+  }
+
+  function normalizedFinalNote() {
+    return normalizeSentenceValue($("finalNote").value, { finalPeriod: true });
+  }
+
+  function normalizeFinalNoteField() {
+    $("finalNote").value = normalizedFinalNote();
+  }
+
   function fullWorkerName() {
-    return [$("workerFirstNames").value.trim(), $("workerLastNames").value.trim()].filter(Boolean).join(" ");
+    return [normalizeNameValue($("workerFirstNames").value), normalizeNameValue($("workerLastNames").value)].filter(Boolean).join(" ");
   }
 
   function fmtDateEs(dateISO) {
@@ -227,8 +279,8 @@
 
   function initSelects() {
     $("month").innerHTML = MONTHS.map((month, index) => `<option value="${index}">${capitalize(month)}</option>`).join("");
-    const hourOptions = Array.from({ length: 12 }, (_, index) => `<option value="${index + 1}">${index + 1}</option>`).join("");
-    const minuteOptions = [0, 10, 20, 30, 40, 50].map((minute) => `<option value="${minute}">${String(minute).padStart(2, "0")}</option>`).join("");
+    const hourOptions = `<option value="">--</option>` + Array.from({ length: 12 }, (_, index) => `<option value="${index + 1}">${index + 1}</option>`).join("");
+    const minuteOptions = `<option value="">--</option>` + [0, 10, 20, 30, 40, 50].map((minute) => `<option value="${minute}">${String(minute).padStart(2, "0")}</option>`).join("");
     $("startHour").innerHTML = hourOptions;
     $("endHour").innerHTML = hourOptions;
     $("startMinute").innerHTML = minuteOptions;
@@ -258,7 +310,7 @@
       const legacy = JSON.parse(raw);
       const names = splitLegacyName(legacy.workerName);
       return {
-        version: 2,
+        version: 3,
         workerFirstNames: names.firstNames,
         workerLastNames: names.lastNames,
         workerId: legacy.workerId || "",
@@ -267,6 +319,8 @@
         month: legacy.month === undefined || legacy.month === null ? defaultPeriod().month : Number(legacy.month),
         half: Number(legacy.half) === 2 ? 2 : 1,
         aidDays: legacy.aidDays ?? "",
+        finalNote: legacy.finalNote || "",
+        projectHistory: Array.isArray(legacy.entries) ? [...new Set(legacy.entries.map((entry) => normalizeProjectValue(entry.project || "")).filter(Boolean))] : [],
         entries: Array.isArray(legacy.entries) ? legacy.entries.map((entry) => ({
           id: entry.id || uniqueId(),
           date: entry.date,
@@ -306,8 +360,12 @@
     $("month").value = period.month;
     $("half").value = period.half;
     $("aidDays").value = saved?.aidDays ?? "";
+    $("finalNote").value = saved?.finalNote || "";
 
     state.period = period;
+    state.projectHistory = Array.isArray(saved?.projectHistory)
+      ? [...new Set(saved.projectHistory.map((project) => normalizeProjectValue(project)).filter(Boolean))]
+      : [];
     state.entries = Array.isArray(saved?.entries)
       ? saved.entries.filter((entry) => entry?.date && entry?.start && entry?.end && withinPeriod(entry.date, period)).map((entry) => ({
           id: entry.id || uniqueId(),
@@ -315,7 +373,7 @@
           start: entry.start,
           end: entry.end,
           lunch: [0, 1, 2, 3].includes(Number(entry.lunch)) ? Number(entry.lunch) : 0,
-          project: String(entry.project || ""),
+          project: normalizeProjectValue(entry.project || ""),
           transport: Number(entry.transport) || 0
         })).sort((a, b) => a.date.localeCompare(b.date))
       : [];
@@ -324,7 +382,7 @@
   function currentSnapshot() {
     const period = getPeriodFromControls();
     return {
-      version: 2,
+      version: 3,
       workerFirstNames: $("workerFirstNames").value,
       workerLastNames: $("workerLastNames").value,
       workerId: $("workerId").value,
@@ -333,6 +391,8 @@
       month: period.month,
       half: period.half,
       aidDays: $("aidDays").value,
+      finalNote: $("finalNote").value,
+      projectHistory: state.projectHistory,
       entries: state.entries
     };
   }
@@ -367,6 +427,7 @@
 
     state.entries = [];
     $("aidDays").value = "";
+    $("finalNote").value = "";
     state.period = next;
     save();
     render();
@@ -388,6 +449,7 @@
     }
     state.entries = [];
     $("aidDays").value = "";
+    $("finalNote").value = "";
     state.period = normalizePeriod(next);
     setPeriodControls(state.period);
     save();
@@ -396,6 +458,12 @@
   }
 
   function setTimeControl(prefix, value) {
+    if (!value) {
+      $(`${prefix}Hour`).value = "";
+      $(`${prefix}Minute`).value = "";
+      $(`${prefix}Period`).value = "";
+      return;
+    }
     const [hour24, minute] = String(value).split(":").map(Number);
     const period = hour24 >= 12 ? "PM" : "AM";
     const hour12 = ((hour24 + 11) % 12) + 1;
@@ -407,22 +475,83 @@
   }
 
   function getTimeControl(prefix) {
-    let hour = Number($(`${prefix}Hour`).value);
-    const minute = Number($(`${prefix}Minute`).value);
+    const hourValue = $(`${prefix}Hour`).value;
+    const minuteValue = $(`${prefix}Minute`).value;
     const period = $(`${prefix}Period`).value;
+    if (hourValue === "" || minuteValue === "" || period === "") return "";
+    let hour = Number(hourValue);
+    const minute = Number(minuteValue);
     if (period === "AM") hour = hour === 12 ? 0 : hour;
     if (period === "PM") hour = hour === 12 ? 12 : hour + 12;
     return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
   }
 
   function updateCalculationPreview() {
-    const entry = {
-      start: getTimeControl("start"),
-      end: getTimeControl("end"),
-      lunch: Number($("lunchHours").value) || 0
-    };
+    const start = getTimeControl("start");
+    const end = getTimeControl("end");
+    const lunchValue = $("lunchHours").value;
+    if (!start || !end || lunchValue === "") {
+      $("calculationPreview").textContent = "Selecciona ingreso, salida y almuerzo para calcular la jornada.";
+      return;
+    }
+    const entry = { start, end, lunch: Number(lunchValue) };
     const result = metrics(entry);
     $("calculationPreview").textContent = `Permanencia: ${fmtDuration(result.presenceMinutes)} · Almuerzo: ${fmtDuration(result.lunchMinutes)} · Laboradas: ${fmtDuration(result.netMinutes)}`;
+  }
+
+  function projectOptions() {
+    return [...new Set([...state.projectHistory, ...state.entries.map((entry) => entry.project)].map((project) => normalizeProjectValue(project)).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  }
+
+  function renderProjects() {
+    const select = $("projectChoice");
+    const previous = select?.value || "";
+    const projects = projectOptions();
+    state.projectHistory = projects;
+    select.innerHTML = `<option value="">Sin proyecto / planta</option>`
+      + projects.map((project) => `<option value="${escapeHtml(project)}">${escapeHtml(project)}</option>`).join("")
+      + `<option value="__new__">Escribir nuevo</option>`;
+    if (previous && (previous === "__new__" || projects.includes(previous))) select.value = previous;
+  }
+
+  function setProjectControl(project) {
+    renderProjects();
+    const normalized = normalizeProjectValue(project);
+    const select = $("projectChoice");
+    const input = $("projectNew");
+    if (normalized && projectOptions().includes(normalized)) {
+      select.value = normalized;
+      input.value = "";
+      $("projectNewField").hidden = true;
+      return;
+    }
+    if (normalized) {
+      select.value = "__new__";
+      input.value = normalized;
+      $("projectNewField").hidden = false;
+      return;
+    }
+    if (!state.projectHistory.length) {
+      select.value = "__new__";
+      $("projectNewField").hidden = false;
+    } else {
+      select.value = "";
+      $("projectNewField").hidden = true;
+    }
+    input.value = "";
+  }
+
+  function toggleProjectInput({ focus = false } = {}) {
+    const isNew = $("projectChoice").value === "__new__";
+    $("projectNewField").hidden = !isNew;
+    if (isNew && focus) window.setTimeout(() => $("projectNew").focus(), 0);
+  }
+
+  function selectedProject() {
+    const choice = $("projectChoice").value;
+    if (choice === "__new__") return normalizeProjectValue($("projectNew").value);
+    return normalizeProjectValue(choice);
   }
 
   function openDayDialog(dateISO) {
@@ -435,10 +564,10 @@
     $("dayDialogDate").textContent = fmtDateEs(dateISO);
     $("entryError").textContent = "";
 
-    setTimeControl("start", entry?.start || "07:00");
-    setTimeControl("end", entry?.end || "15:00");
-    $("lunchHours").value = String(entry?.lunch ?? 1);
-    $("project").value = entry?.project || "";
+    setTimeControl("start", entry?.start || "");
+    setTimeControl("end", entry?.end || "");
+    $("lunchHours").value = entry ? String(entry.lunch) : "";
+    setProjectControl(entry?.project || "");
     $("transport").value = entry?.transport ? String(entry.transport) : "";
     $("deleteEntryBtn").hidden = !entry;
     updateCalculationPreview();
@@ -456,18 +585,26 @@
 
   function saveDayEntry() {
     const date = $("editingDate").value;
+    const start = getTimeControl("start");
+    const end = getTimeControl("end");
+    const lunchValue = $("lunchHours").value;
+    $("entryError").textContent = "";
+    if (!start || !end || lunchValue === "") {
+      $("entryError").textContent = "Selecciona la hora de ingreso, la hora de salida y el tiempo de almuerzo.";
+      return;
+    }
+    const project = selectedProject();
     const entry = {
       id: entryForDate(date)?.id || uniqueId(),
       date,
-      start: getTimeControl("start"),
-      end: getTimeControl("end"),
-      lunch: Number($("lunchHours").value) || 0,
-      project: $("project").value.trim(),
+      start,
+      end,
+      lunch: Number(lunchValue),
+      project,
       transport: Math.max(0, Number($("transport").value) || 0)
     };
     const result = metrics(entry);
 
-    $("entryError").textContent = "";
     if (!withinPeriod(date)) {
       $("entryError").textContent = "La fecha no pertenece a la quincena seleccionada.";
       return;
@@ -479,6 +616,11 @@
     if (result.lunchMinutes > result.presenceMinutes) {
       $("entryError").textContent = "El almuerzo no puede superar el tiempo de permanencia.";
       return;
+    }
+
+    if (project && !state.projectHistory.some((savedProject) => savedProject.localeCompare(project, "es", { sensitivity: "base" }) === 0)) {
+      state.projectHistory.push(project);
+      state.projectHistory.sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
     }
 
     const index = state.entries.findIndex((item) => item.date === date);
@@ -508,11 +650,6 @@
     $("periodBanner").textContent = `Quincena ${period.half} · ${periodText(period)}`;
     $("quincenaStartMarker").textContent = `Inicio quincena ${period.half}`;
     $("quincenaEndMarker").textContent = `Final quincena ${period.half}`;
-  }
-
-  function renderProjects() {
-    const projects = [...new Set(state.entries.map((entry) => entry.project.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
-    $("projectList").innerHTML = projects.map((project) => `<option value="${escapeHtml(project)}"></option>`).join("");
   }
 
   function renderWeeks() {
@@ -570,9 +707,7 @@
     $("transportSummary").textContent = fmtMoney(transport);
     $("transportMetric").hidden = transport <= 0;
 
-    const aidValue = $("aidDays").value;
-    const aidText = aidValue === "" ? "pendiente de confirmar" : `${Number(aidValue)} día${Number(aidValue) === 1 ? "" : "s"}`;
-    $("notePreview").innerHTML = `<strong>Nota automática:</strong> Las horas laboradas se calculan como permanencia menos almuerzo. Total: <strong>${fmtDuration(total)}</strong>. Auxilio diario pactado: <strong>${aidText}</strong>.`;
+
   }
 
   function render() {
@@ -590,6 +725,9 @@
   }
 
   function validateForExport() {
+    normalizeWorkerFields();
+    normalizeFinalNoteField();
+    save();
     if (!$("workerFirstNames").value.trim()) {
       focusField("workerFirstNames", "Completa los nombres del trabajador");
       return false;
@@ -639,7 +777,7 @@
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
   }
 
-  function applyBorders(cell, color = "FFB9C4CE") {
+  function applyBorders(cell, color = "FF000000") {
     cell.border = {
       top: { style: "thin", color: { argb: color } },
       left: { style: "thin", color: { argb: color } },
@@ -719,7 +857,7 @@
       marker.font = { bold: true, size: 9, color: { argb: "FF2B5978" } };
       marker.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE9F2F8" } };
       marker.alignment = { horizontal: "center", vertical: "middle" };
-      applyBorders(marker, "FFC8D8E4");
+      applyBorders(marker, "FF000000");
       worksheet.getRow(row).height = 20;
       row += 1;
 
@@ -729,7 +867,7 @@
         cell.font = { bold: true, size: 8.5, color: { argb: "FFFFFFFF" } };
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F5F8B" } };
         cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-        applyBorders(cell, "FF174A6B");
+        applyBorders(cell, "FF000000");
       });
       worksheet.getRow(row).height = 26;
       row += 1;
@@ -807,7 +945,7 @@
     }
     for (let column = 1; column <= columnCount; column += 1) {
       const cell = worksheet.getCell(row, column);
-      applyBorders(cell, "FF9CAAB6");
+      applyBorders(cell, "FF000000");
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDE4E9" } };
     }
     worksheet.getRow(row).height = 24;
@@ -815,13 +953,27 @@
 
     worksheet.mergeCells(row, 1, row, columnCount);
     const noteCell = worksheet.getCell(row, 1);
-    noteCell.value = `NOTA: Las horas laboradas corresponden a la permanencia menos el tiempo de almuerzo. TOTAL HORAS A CANCELAR: ${fmtDuration(totalNetMinutes()).toUpperCase()} + AUXILIO DIARIO PACTADO POR ${Number($("aidDays").value)} DÍAS.`;
-    noteCell.font = { bold: true, size: 8.5, color: { argb: "FF5A472A" } };
+    noteCell.value = `NOTA GENERAL: Las horas laboradas corresponden a la permanencia menos el tiempo de almuerzo. TOTAL HORAS A CANCELAR: ${fmtDuration(totalNetMinutes()).toUpperCase()} + AUXILIO DIARIO PACTADO POR ${Number($("aidDays").value)} DÍAS.`;
+    noteCell.font = { bold: true, size: 8.5, color: { argb: "FF2F2F2F" } };
     noteCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF2C7" } };
     noteCell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-    applyBorders(noteCell, "FFE4C66A");
+    applyBorders(noteCell, "FF000000");
     worksheet.getRow(row).height = 38;
-    row += 3;
+    row += 1;
+
+    const userNote = normalizedFinalNote();
+    if (userNote) {
+      worksheet.mergeCells(row, 1, row, columnCount);
+      const userNoteCell = worksheet.getCell(row, 1);
+      userNoteCell.value = `NOTA ADICIONAL: ${userNote}`;
+      userNoteCell.font = { bold: true, size: 9, color: { argb: "FF18212B" } };
+      userNoteCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF7FAFC" } };
+      userNoteCell.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+      applyBorders(userNoteCell, "FF000000");
+      worksheet.getRow(row).height = Math.max(28, 18 + Math.ceil(userNote.length / 115) * 11);
+      row += 1;
+    }
+    row += 2;
 
     const signatureSplit = Math.ceil(columnCount / 2);
     worksheet.getCell(row, 1).value = "FIRMA TRABAJADOR:";
@@ -956,7 +1108,7 @@
       fontSize: 7.1,
       cellPadding: 1.35,
       valign: "middle",
-      lineColor: [190, 199, 207],
+      lineColor: [0, 0, 0],
       lineWidth: 0.18,
       overflow: "linebreak"
     };
@@ -992,21 +1144,46 @@
     }
 
     doc.setFillColor(221, 228, 233);
-    doc.rect(left, y, pageWidth - left * 2, 8, "F");
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.2);
+    doc.rect(left, y, pageWidth - left * 2, 8, "FD");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9.5);
     doc.text(`FINAL QUINCENA ${period.half} · TOTAL HORAS LABORADAS`, left + 3, y + 5.2);
     doc.text(fmtDuration(totalNetMinutes()), pageWidth - left - 3, y + 5.2, { align: "right" });
     y += 11;
 
+    const generalNote = `NOTA GENERAL: Las horas laboradas corresponden a la permanencia menos el tiempo de almuerzo. Total horas a cancelar: ${fmtDuration(totalNetMinutes())} + auxilio diario pactado por ${Number($("aidDays").value)} días.`;
+    const generalLines = doc.splitTextToSize(generalNote, pageWidth - left * 2 - 6);
+    const generalNoteHeight = Math.max(12, 5 + generalLines.length * 3.2);
     doc.setFillColor(255, 242, 199);
-    doc.rect(left, y, pageWidth - left * 2, 13, "F");
-    doc.setTextColor(90, 71, 42);
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.2);
+    doc.rect(left, y, pageWidth - left * 2, generalNoteHeight, "FD");
+    doc.setTextColor(47, 47, 47);
     doc.setFontSize(7.4);
     doc.setFont("helvetica", "bold");
-    const note = `NOTA: Las horas laboradas corresponden a la permanencia menos el tiempo de almuerzo. Total horas a cancelar: ${fmtDuration(totalNetMinutes())} + auxilio diario pactado por ${Number($("aidDays").value)} días.`;
-    doc.text(doc.splitTextToSize(note, pageWidth - left * 2 - 6), left + 3, y + 4.2);
-    y += 18;
+    doc.text(generalLines, left + 3, y + 4.2);
+    y += generalNoteHeight + 3;
+
+    const userNote = normalizedFinalNote();
+    if (userNote) {
+      const userText = `NOTA ADICIONAL: ${userNote}`;
+      const userLines = doc.splitTextToSize(userText, pageWidth - left * 2 - 6);
+      const userNoteHeight = Math.max(12, 5 + userLines.length * 3.4);
+      if (y + userNoteHeight + 22 > 198) {
+        doc.addPage("a4", "landscape");
+        y = 14;
+      }
+      doc.setFillColor(247, 250, 252);
+      doc.setDrawColor(0, 0, 0);
+      doc.rect(left, y, pageWidth - left * 2, userNoteHeight, "FD");
+      doc.setTextColor(24, 33, 43);
+      doc.setFontSize(7.8);
+      doc.setFont("helvetica", "bold");
+      doc.text(userLines, left + 3, y + 4.2);
+      y += userNoteHeight + 4;
+    }
 
     doc.setTextColor(24, 33, 43);
     doc.setFontSize(8);
@@ -1064,7 +1241,7 @@
       try {
         const data = JSON.parse(String(reader.result));
         if (!data || !Array.isArray(data.entries)) throw new Error("Formato inválido");
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, version: 2 }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, version: 3 }));
         window.location.reload();
       } catch {
         window.alert("La copia de seguridad no tiene un formato válido.");
@@ -1099,18 +1276,37 @@
   }
 
   function resetAll() {
-    if (!window.confirm("Esto borrará el trabajador, las jornadas y la quincena guardada en este dispositivo. ¿Continuar?")) return;
+    if (!window.confirm("Esto borrará el trabajador, las jornadas, los proyectos guardados y la quincena almacenada en este dispositivo. ¿Continuar?")) return;
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(LEGACY_STORAGE_KEY);
     window.location.reload();
   }
 
   function bind() {
-    ["workerFirstNames", "workerLastNames", "workerId", "workerRole", "aidDays"].forEach((id) => {
+    ["workerFirstNames", "workerLastNames", "workerId", "workerRole", "aidDays", "finalNote"].forEach((id) => {
       $(id).addEventListener("input", () => {
         save();
         if (id === "aidDays") renderSummary();
       });
+    });
+
+    ["workerFirstNames", "workerLastNames"].forEach((id) => {
+      $(id).addEventListener("blur", () => {
+        $(id).value = normalizeNameValue($(id).value);
+        save();
+      });
+    });
+    $("workerRole").addEventListener("blur", () => {
+      $("workerRole").value = normalizeLabelValue($("workerRole").value);
+      save();
+    });
+    $("workerId").addEventListener("blur", () => {
+      $("workerId").value = cleanSpaces($("workerId").value);
+      save();
+    });
+    $("finalNote").addEventListener("blur", () => {
+      normalizeFinalNoteField();
+      save();
     });
 
     ["year", "month", "half"].forEach((id) => $(id).addEventListener("change", handlePeriodChange));
@@ -1125,6 +1321,10 @@
 
     ["startHour", "startMinute", "startPeriod", "endHour", "endMinute", "endPeriod", "lunchHours"].forEach((id) => {
       $(id).addEventListener("change", updateCalculationPreview);
+    });
+    $("projectChoice").addEventListener("change", () => toggleProjectInput({ focus: true }));
+    $("projectNew").addEventListener("blur", () => {
+      $("projectNew").value = normalizeProjectValue($("projectNew").value);
     });
 
     $("saveEntryBtn").addEventListener("click", saveDayEntry);
@@ -1166,6 +1366,8 @@
   function init() {
     initSelects();
     load();
+    normalizeWorkerFields();
+    normalizeFinalNoteField();
     bind();
     render();
     save();

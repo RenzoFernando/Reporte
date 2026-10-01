@@ -33,6 +33,9 @@ La información del trabajador y las jornadas se guarda localmente en el navegad
 - Cálculo automático de permanencia y horas laboradas.
 - Transporte diario opcional y total automático cuando se utiliza.
 - Campo obligatorio para confirmar los días de auxilio diario pactado.
+- Historial reutilizable de proyectos o plantas para evitar escribirlos repetidamente.
+- Nota adicional opcional, normalizada y destacada en negrilla en los documentos generados.
+- Normalización de nombres y textos para mantener una presentación consistente.
 - Firma del trabajador con nombre completo y firma del supervisor en blanco.
 - Generación de un único Excel con la hoja `Reporte` y exportación a PDF.
 - Guardado local, copia de seguridad e importación de datos.

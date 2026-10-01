@@ -269,14 +269,20 @@ small { color: var(--text-muted); font-size: 0.74rem; font-weight: 500; line-hei
 .metric strong { display: block; margin-top: 3px; font-size: 1rem; }
 .aid-field { max-width: 430px; }
 .aid-field b { color: var(--danger); }
-.note-preview {
+.final-note-field {
+  display: block;
+  max-width: 680px;
   margin-top: 14px;
-  padding: 12px 13px;
-  border-left: 4px solid #d69731;
-  background: var(--warning-soft);
-  color: #5c4b2f;
-  border-radius: 8px;
-  font-size: 0.79rem;
+}
+.final-note-field textarea {
+  min-height: 104px;
+  resize: vertical;
+  line-height: 1.45;
+}
+.final-note-field em, .transport-field em {
+  color: var(--text-muted);
+  font-style: normal;
+  font-weight: 650;
 }
 
 .tools-panel {
@@ -334,8 +340,9 @@ small { color: var(--text-muted); font-size: 0.74rem; font-weight: 500; line-hei
 
 .project-footer {
   width: min(var(--content-width), calc(100% - 28px));
-  margin: 0 auto;
-  padding: 8px 0 calc(84px + env(safe-area-inset-bottom));
+  margin: 14px auto 0;
+  padding: 12px 0 calc(84px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border-strong);
   text-align: center;
   color: var(--text-muted);
   font-size: 0.75rem;
@@ -380,6 +387,8 @@ small { color: var(--text-muted); font-size: 0.74rem; font-weight: 500; line-hei
 .time-picker { display: grid; grid-template-columns: 1fr 1fr 1.08fr; gap: 8px; }
 .time-picker label > span { font-size: 0.68rem; color: var(--text-muted); }
 .dialog-form-grid { display: grid; gap: 12px; margin-top: 14px; }
+.project-control { display: grid; gap: 10px; }
+.project-control [hidden] { display: none !important; }
 .transport-field { max-width: 280px; }
 .calculation-preview {
   margin-top: 14px;

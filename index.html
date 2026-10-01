@@ -117,11 +117,11 @@
       <div class="form-grid worker-grid">
         <label>
           <span>Nombres</span>
-          <input id="workerFirstNames" type="text" autocomplete="given-name" placeholder="Ej. Leandro">
+          <input id="workerFirstNames" type="text" autocomplete="given-name" placeholder="Nombres" autocapitalize="words">
         </label>
         <label>
           <span>Apellidos</span>
-          <input id="workerLastNames" type="text" autocomplete="family-name" placeholder="Ej. Daza Jaimes">
+          <input id="workerLastNames" type="text" autocomplete="family-name" placeholder="Apellidos" autocapitalize="words">
         </label>
         <label>
           <span>Cédula</span>
@@ -129,7 +129,7 @@
         </label>
         <label>
           <span>Cargo</span>
-          <input id="workerRole" type="text" autocomplete="organization-title" placeholder="Cargo del trabajador">
+          <input id="workerRole" type="text" autocomplete="organization-title" placeholder="Cargo" autocapitalize="sentences">
         </label>
       </div>
     </section>
@@ -159,7 +159,7 @@
           <span class="section-number" aria-hidden="true">4</span>
           <div>
             <h2 id="closeTitle">Cierre del reporte</h2>
-            <p>Confirma el auxilio pactado antes de descargar.</p>
+            <p>Completa los datos finales antes de descargar.</p>
           </div>
         </div>
       </div>
@@ -172,11 +172,16 @@
 
       <label class="aid-field">
         <span>Días con auxilio diario pactado <b aria-hidden="true">*</b></span>
-        <input id="aidDays" type="number" inputmode="numeric" min="0" max="31" step="1" placeholder="Ej. 13">
+        <input id="aidDays" type="number" inputmode="numeric" min="0" max="31" step="1" placeholder="Cantidad de días">
         <small>Este dato se solicita en cada quincena y puede ser distinto de los días trabajados.</small>
       </label>
 
-      <div class="note-preview" id="notePreview"></div>
+      <label class="final-note-field">
+        <span>Nota al final del documento <em>opcional</em></span>
+        <textarea id="finalNote" rows="4" maxlength="600" autocapitalize="sentences" placeholder="Escribe una nota para incluir al final del reporte."></textarea>
+        <small>La nota se incluirá en negrilla en Excel y PDF.</small>
+      </label>
+
       <div class="quincena-end" id="quincenaEndMarker"></div>
     </section>
 
@@ -190,7 +195,7 @@
         <button class="button secondary" id="installBtn" type="button" hidden>Instalar aplicación</button>
         <button class="button danger" id="resetAllBtn" type="button">Borrar datos guardados</button>
       </div>
-      <p class="privacy-note">Los datos del trabajador y las jornadas se almacenan en el navegador de este dispositivo. La aplicación no incluye servidor propio.</p>
+      <p class="privacy-note">Los datos del reporte se almacenan en el navegador de este dispositivo. La aplicación no incluye servidor propio.</p>
     </details>
   </main>
 
@@ -231,7 +236,7 @@
         <div class="time-picker" data-time-picker="start">
           <label><span>Hora</span><select id="startHour"></select></label>
           <label><span>Minutos</span><select id="startMinute"></select></label>
-          <label><span>Periodo</span><select id="startPeriod"><option value="AM">a. m.</option><option value="PM">p. m.</option></select></label>
+          <label><span>Periodo</span><select id="startPeriod"><option value="">--</option><option value="AM">a. m.</option><option value="PM">p. m.</option></select></label>
         </div>
       </fieldset>
 
@@ -240,7 +245,7 @@
         <div class="time-picker" data-time-picker="end">
           <label><span>Hora</span><select id="endHour"></select></label>
           <label><span>Minutos</span><select id="endMinute"></select></label>
-          <label><span>Periodo</span><select id="endPeriod"><option value="AM">a. m.</option><option value="PM">p. m.</option></select></label>
+          <label><span>Periodo</span><select id="endPeriod"><option value="">--</option><option value="AM">a. m.</option><option value="PM">p. m.</option></select></label>
         </div>
       </fieldset>
 
@@ -248,24 +253,33 @@
         <label>
           <span>Almuerzo</span>
           <select id="lunchHours">
+            <option value="">Seleccionar</option>
             <option value="0">0 horas</option>
-            <option value="1" selected>1 hora</option>
+            <option value="1">1 hora</option>
             <option value="2">2 horas</option>
             <option value="3">3 horas</option>
           </select>
         </label>
-        <label>
-          <span>Proyecto / planta</span>
-          <input id="project" type="text" list="projectList" placeholder="Ej. FAMILIA PUERTO / GAS" autocomplete="off">
-          <datalist id="projectList"></datalist>
-        </label>
+        <div class="project-control">
+          <label>
+            <span>Proyecto / planta</span>
+            <select id="projectChoice">
+              <option value="">Sin proyecto / planta</option>
+              <option value="__new__">Escribir nuevo</option>
+            </select>
+          </label>
+          <label id="projectNewField" hidden>
+            <span>Nuevo proyecto / planta</span>
+            <input id="projectNew" type="text" autocomplete="off" autocapitalize="words" placeholder="Proyecto o planta">
+          </label>
+        </div>
         <label class="transport-field">
           <span>Transporte del día <em>opcional</em></span>
-          <input id="transport" type="number" inputmode="numeric" min="0" step="1000" placeholder="0">
+          <input id="transport" type="number" inputmode="numeric" min="0" step="1000" placeholder="Valor en pesos">
         </label>
       </div>
 
-      <div class="calculation-preview" id="calculationPreview">Permanencia: 8 h · Almuerzo: 1 h · Laboradas: 7 h</div>
+      <div class="calculation-preview" id="calculationPreview">Selecciona ingreso, salida y almuerzo para calcular la jornada.</div>
       <p class="form-error" id="entryError" role="alert"></p>
 
       <div class="dialog-actions">
